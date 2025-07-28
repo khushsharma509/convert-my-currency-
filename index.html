@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Currency Converter</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+            padding: 2.5rem; /* p-10 */
+            max-width: 28rem; /* max-w-md */
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .input-group {
+            margin-bottom: 1.5rem; /* mb-6 */
+        }
+        label {
+            display: block;
+            font-weight: 600; /* font-semibold */
+            margin-bottom: 0.5rem; /* mb-2 */
+            color: #374151; /* text-gray-700 */
+        }
+        input, select {
+            width: 100%;
+            padding: 0.75rem 1rem; /* py-3 px-4 */
+            border: 1px solid #d1d5db; /* border-gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            font-size: 1rem; /* text-base */
+            color: #4b5563; /* text-gray-700 */
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6; /* border-blue-500 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); /* ring-blue-500 */
+        }
+        button {
+            width: 100%;
+            padding: 0.75rem 1.5rem; /* py-3 px-6 */
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: #ffffff; /* text-white */
+            font-weight: 600; /* font-semibold */
+            border-radius: 0.5rem; /* rounded-lg */
+            transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background-color: #2563eb; /* bg-blue-600 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .result {
+            margin-top: 2rem; /* mt-8 */
+            padding: 1.5rem; /* p-6 */
+            background-color: #e0f2fe; /* bg-blue-50 */
+            border-radius: 0.75rem; /* rounded-lg */
+            text-align: center;
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* font-semibold */
+            color: #1e40af; /* text-blue-800 */
+        }
+        .error-message {
+            color: #dc2626; /* text-red-600 */
+            margin-top: 1rem; /* mt-4 */
+            text-align: center;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .flex-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Currency Converter</h1>
+
+        <div class="input-group">
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" value="1" min="0.01" step="0.01" class="focus:border-blue-500 focus:ring-blue-500">
+        </div>
+
+        <div class="input-group">
+            <label for="fromCurrency">From Currency:</label>
+            <select id="fromCurrency" class="focus:border-blue-500 focus:ring-blue-500"></select>
+        </div>
+
+        <div class="input-group">
+            <label for="toCurrency">To Currency:</label>
+            <select id="toCurrency" class="focus:border-blue-500 focus:ring-blue-500"></select>
+        </div>
+
+        <button id="convertBtn" class="flex-center">
+            Convert
+            <span id="loadingSpinner" class="loading-spinner hidden"></span>
+        </button>
+
+        <div id="result" class="result hidden"></div>
+        <div id="errorMessage" class="error-message hidden"></div>
+    </div>
+
+    <script>
+        // IMPORTANT: Replace 'YOUR_API_KEY_HERE' with your actual API key from https://www.exchangerate-api.com/
+        // If you see "Failed to fetch" errors, this is the most likely cause.
+        const API_KEY = 'YOUR_API_KEY_HERE';
+        const BASE_URL = `https://v6.exchangerate-api.com/v6/${API_KEY}`;
+
+        const amountInput = document.getElementById('amount');
+        const fromCurrencySelect = document.getElementById('fromCurrency');
+        const toCurrencySelect = document.getElementById('toCurrency');
+        const convertBtn = document.getElementById('convertBtn');
+        const resultDiv = document.getElementById('result');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        // Function to show message (error or info)
+        function showMessage(element, message, type = 'error') {
+            element.textContent = message;
+            element.classList.remove('hidden');
+            if (type === 'error') {
+                element.classList.add('text-red-600');
+                element.classList.remove('text-green-600');
+            } else {
+                element.classList.add('text-green-600');
+                element.classList.remove('text-red-600');
+            }
+        }
+
+        // Function to hide message
+        function hideMessage(element) {
+            element.classList.add('hidden');
+            element.textContent = '';
+        }
+
+        // Function to fetch and populate currencies
+        async function fetchCurrencies() {
+            try {
+                hideMessage(errorMessageDiv);
+                showMessage(resultDiv, 'Loading currencies...', 'info');
+                resultDiv.classList.remove('hidden'); // Show loading message
+
+                const response = await fetch(`${BASE_URL}/codes`);
+                const data = await response.json();
+
+                if (data.result === 'success') {
+                    const currencies = data.supported_codes;
+                    fromCurrencySelect.innerHTML = '';
+                    toCurrencySelect.innerHTML = '';
+
+                    currencies.forEach(currency => {
+                        const [code, name] = currency;
+                        const option1 = document.createElement('option');
+                        option1.value = code;
+                        option1.textContent = `${code} - ${name}`;
+                        fromCurrencySelect.appendChild(option1);
+
+                        const option2 = document.createElement('option');
+                        option2.value = code;
+                        option2.textContent = `${code} - ${name}`;
+                        toCurrencySelect.appendChild(option2);
+                    });
+
+                    // Set default currencies (e.g., USD to EUR)
+                    fromCurrencySelect.value = 'USD';
+                    toCurrencySelect.value = 'EUR';
+                    hideMessage(resultDiv); // Hide loading message after populating
+                } else {
+                    // Specific error handling for API key issues
+                    if (data['error-type'] === 'invalid-key' || data['error-type'] === 'usage-limit-reached') {
+                        showMessage(errorMessageDiv, `API Error: ${data['error-type'].replace(/-/g, ' ')}. Please check your API key or usage limits.`);
+                    } else {
+                        showMessage(errorMessageDiv, `Error fetching currencies: ${data['error-type'] || 'Unknown error'}`);
+                    }
+                    hideMessage(resultDiv);
+                }
+            } catch (error) {
+                showMessage(errorMessageDiv, `Failed to load currencies. Please check your internet connection and ensure your API key is correctly set. Error: ${error.message}`);
+                hideMessage(resultDiv);
+            }
+        }
+
+        // Function to convert currency
+        async function convertCurrency() {
+            const amount = parseFloat(amountInput.value);
+            const fromCurrency = fromCurrencySelect.value;
+            const toCurrency = toCurrencySelect.value;
+
+            if (isNaN(amount) || amount <= 0) {
+                showMessage(errorMessageDiv, 'Please enter a valid amount.');
+                hideMessage(resultDiv);
+                return;
+            }
+
+            // Show loading spinner and disable button
+            convertBtn.disabled = true;
+            loadingSpinner.classList.remove('hidden');
+            hideMessage(errorMessageDiv);
+            hideMessage(resultDiv);
+
+            try {
+                const response = await fetch(`${BASE_URL}/pair/${fromCurrency}/${toCurrency}`);
+                const data = await response.json();
+
+                if (data.result === 'success') {
+                    const rate = data.conversion_rate;
+                    const convertedAmount = (amount * rate).toFixed(2); // Limit to 2 decimal places
+                    resultDiv.textContent = `${amount} ${fromCurrency} = ${convertedAmount} ${toCurrency}`;
+                    resultDiv.classList.remove('hidden');
+                } else {
+                    // Specific error handling for API key issues
+                    if (data['error-type'] === 'invalid-key' || data['error-type'] === 'usage-limit-reached') {
+                        showMessage(errorMessageDiv, `API Error: ${data['error-type'].replace(/-/g, ' ')}. Please check your API key or usage limits.`);
+                    } else {
+                        showMessage(errorMessageDiv, `Error converting currency: ${data['error-type'] || 'Unknown error'}.`);
+                    }
+                }
+            } catch (error) {
+                showMessage(errorMessageDiv, `Failed to convert currency. Please check your internet connection and ensure your API key is correctly set. Error: ${error.message}`);
+            } finally {
+                // Hide loading spinner and enable button
+                convertBtn.disabled = false;
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // Event Listeners
+        convertBtn.addEventListener('click', convertCurrency);
+        // Also convert on pressing Enter in the amount field
+        amountInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                convertCurrency();
+            }
+        });
+
+        // Initial fetch of currencies when the page loads
+        window.onload = fetchCurrencies;
+    </script>
+</body>
+</html>
